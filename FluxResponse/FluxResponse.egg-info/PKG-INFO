@@ -1,0 +1,20 @@
+Metadata-Version: 2.1
+Name: FluxResponse
+Version: 0.1.0
+Summary: A Python package for convoluting a theoretical flux grid with the ARF and RMF response files
+Home-page: https://github.com/francandon/FluxResponse
+Author: Francisco Rodríguez Candón
+Author-email: francandon@unizar.es
+License: UNKNOWN
+Project-URL: Bug Tracker, https://github.com/francandon/AstroClass/issues
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+
+# FluxResponse
+A Python package for convoluting a theoretical flux grid with the ARF and RMF response files
+
+
