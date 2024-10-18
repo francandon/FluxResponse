@@ -7,7 +7,7 @@ import logging
 import numpy as np
 from numba import njit, prange
 
-from .load_responses import ResponseLoader  # Relative import
+from .ResponseLoader import ResponseLoader  # Relative import
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

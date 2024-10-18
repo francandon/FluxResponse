@@ -1,9 +1,0 @@
-README.md
-pyproject.toml
-setup.cfg
-setup.py
-FluxResponse/FluxResponse.egg-info/PKG-INFO
-FluxResponse/FluxResponse.egg-info/SOURCES.txt
-FluxResponse/FluxResponse.egg-info/dependency_links.txt
-FluxResponse/FluxResponse.egg-info/requires.txt
-FluxResponse/FluxResponse.egg-info/top_level.txt
