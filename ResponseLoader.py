@@ -7,6 +7,8 @@ import logging
 import numpy as np
 from astropy.io import fits
 
+import numpy as np
+
 class ResponseLoader:
     def __init__(self, response_data_path, angular_bins=11):
         self.response_data_path = response_data_path
@@ -38,116 +40,92 @@ class ResponseLoader:
         if angular_bins != 11:
             logging.warning("The number of angular bins is expected to be 11.")
         self._angular_bins = angular_bins
+
+    """
+    This methood is the new one to load RMF data based on https://github.com/KriSun95/nustarFittingExample/blob/master/nustarFittingExample/nu_spec_code.py
+    """
+    def load_RMF_data(self, visualize=None):
+            """
+            Carga datos RMF (Response Matrix File) desde el directorio especificado.
+
+            Parámetros:
+                visualize (bool): Si es True, se retorna información adicional útil para visualización.
+
+            Retorna:
+                Si visualize es True:
+                    tuple: (channel, emin, emax, energies_low, energies_high, response_data)
+                        - channel (list of np.ndarray): Canales de cada archivo RMF.
+                        - emin (list of np.ndarray): Energías mínimas de cada archivo RMF.
+                        - emax (list of np.ndarray): Energías máximas de cada archivo RMF.
+                        - energies_low (list of np.ndarray): Límites inferiores de energía de cada archivo RMF.
+                        - energies_high (list of np.ndarray): Límites superiores de energía de cada archivo RMF.
+                        - response_data (np.ndarray): Matriz 2D de datos de respuesta.
+                Si visualize es False:
+                    tuple: (energies_low, energies_high, response_data)
+                        - energies_low (list of np.ndarray): Límites inferiores de energía de cada archivo RMF.
+                        - energies_high (list of np.ndarray): Límites superiores de energía de cada archivo RMF.
+                        - response_data (np.ndarray): Matriz 2D de datos de respuesta.
+            """
+                    # Create a list of RMF file paths for each angular bin
+            rmf_files = [os.path.join(self.response_data_path, f'annulus{i}.rmf') for i in range(self.angular_bins)]
+
+            # Initialize lists to store data from RMF files
+            energies_low = []
+            energies_high = []
+            responses = []
+            n_grp = []
+            f_chan = []
+            n_chan = []
+            channel = []
+            emin = []
+            emax = []
+
+            # Load data from each RMF file
+            for rmf_file in rmf_files:
+                try:
+                    with fits.open(rmf_file) as rmf:
+                        rmf_matrix = rmf['MATRIX'].data
+                        energies_low.append(rmf_matrix['ENERG_LO'])
+                        energies_high.append(rmf_matrix['ENERG_HI'])
+                        responses.append(rmf_matrix['MATRIX'])
+                        n_grp.append(rmf_matrix['N_GRP'])
+                        n_chan.append(rmf_matrix['N_CHAN'])
+                        f_chan.append(rmf_matrix['F_CHAN'])
+                        # Assuming 'CHANNEL', 'EMIN', 'EMAX' are present; adjust if different
+                        if visualize:
+                            Rmf_ebounds = rmf["EBOUNDS"].data
+                            channel.append(Rmf_ebounds['CHANNEL'])
+                            emin.append(Rmf_ebounds['E_MIN'])
+                            emax.append(Rmf_ebounds['E_MAX'])
+                except FileNotFoundError as e:
+                    logging.error(f"File not found: {rmf_file}")
+                    raise
+                except Exception as e:
+                    logging.error(f"Error loading {rmf_file}: {e}")
+                    raise
+            actual_response = np.zeros((len(responses), len(energies_low[0][:]), len(energies_low[0][:])))
+
+            # Iterate over the angular bins and indices
+            for angular_bin in range(len(responses)):
+                for index in range(len(energies_low[0][:])):
+                    # Calculate the start and end indices
+                    inits = f_chan[angular_bin][index]
+                    n_chan_index = n_chan[angular_bin][index]
+                    start = inits
+                    end = inits + n_chan[angular_bin][index]
+                    # Update the actual_response with the values from responses
+                    counter = 0
+                    for start_idx, end_idx, n in zip(start, end, n_chan_index):
+                        actual_response[angular_bin][index][start_idx:end_idx] = responses[angular_bin][index][counter:counter+n]  
+                        counter = counter +  n      
+            # Converts Actual response into a numpy array
+            actual_response = np.array(actual_response)
+            print(actual_response.shape)
+            if visualize:
+                return channel, emin, emax, energies_low, energies_high, actual_response
+            else:   
+                return energies_low, energies_high, actual_response
     
-    def load_RMF_data(self):
-        """
-        Load RMF (Response Matrix File) data from the specified directory.
-
-        Parameters:
-            visualize (bool): If True, additional data useful for visualization is returned.
-
-        Returns:
-            If visualize is True:
-                tuple: (channel, emin, emax, energies_low, energies_high, response_data)
-                    - channel (list of np.ndarray): Channels from each RMF file.
-                    - emin (list of np.ndarray): Minimum energies from each RMF file.
-                    - emax (list of np.ndarray): Maximum energies from each RMF file.
-                    - energies_low (list of np.ndarray): Lower energy bounds from each RMF file.
-                    - energies_high (list of np.ndarray): Higher energy bounds from each RMF file.
-                    - response_data (np.ndarray): 3D array of response data.
-
-            If visualize is False:
-                tuple: (energies_low, energies_high, response_data)
-                    - energies_low (list of np.ndarray): Lower energy bounds from each RMF file.
-                    - energies_high (list of np.ndarray): Higher energy bounds from each RMF file.
-                    - response_data (np.ndarray): 3D array of response data.
-        """
-        # Create a list of the RMF files for the annulus regions
-        rmf_files = [os.path.join(self.response_data_path, f'annulus{i}.rmf') for i in range(self.angular_bins)]
-
-        # Initialize lists to store RMF data
-        energies_low = []
-        energies_high = []
-        responses = []
-
-        # Load the RMF data
-        for rmf_file in rmf_files:
-            try:
-                with fits.open(rmf_file) as rmf:
-                    rmf_matrix = rmf['MATRIX'].data
-                    energies_low.append(rmf_matrix['ENERG_LO'])
-                    energies_high.append(rmf_matrix['ENERG_HI'])
-                    responses.append(rmf_matrix['MATRIX'])
-            except FileNotFoundError as e:
-                logging.error(f"File not found: {rmf_file}")
-                raise
-            except Exception as e:
-                logging.error(f"Error loading {rmf_file}: {e}")
-                raise
-            
-    # Convert to a consistent 2D array by padding each row to the max length
-        max_length = max(len(row) for response in responses for row in response)
-
-        # Initialize a 3D array with zeros to store the response data
-        response_data = np.zeros((len(responses), len(responses[0]), max_length))
-
-        # Fill the response_data array with values
-        for i, response in enumerate(responses):
-            for j, row in enumerate(response):
-                response_data[i, j, :len(row)] = row  # Pad with zeros if row is shorter
-
-        return energies_low, energies_high, response_data
-
-    def load_RMF_visualization_data(self):
-        """
-        Load RMF data for visualization purposes.
-
-        Returns:
-        tuple: A tuple containing the following elements:
-            - Channel (list): List of channels.
-            - E_min (list): List of minimum energies.
-            - E_max (list): List of maximum energies.
-            - Energies_low (list): List of lower energy bounds.
-            - Energies_high (list): List of higher energy bounds.
-            - Response_data (np.ndarray): 3D array of response data.
-        """
-        rmf_files = [os.path.join(self.response_data_path, f'annulus{i}.rmf') for i in range(self.angular_bins)]
-
-        # Initialize lists to store RMF data
-        channel = []
-        emin = []
-        emax = []
-        energies_low = []
-        energies_high = []
-        responses = []
-
-        # Load the RMF data
-        for rmf_file in rmf_files:
-            try:
-                with fits.open(rmf_file) as rmf:
-                    Rmf_ebounds = rmf["EBOUNDS"].data
-                    channel.append(Rmf_ebounds['CHANNEL'])
-                    emin.append(Rmf_ebounds['E_MIN'])
-                    emax.append(Rmf_ebounds['E_MAX'])
-
-                    Rmf_matrix = rmf['MATRIX'].data
-                    energies_low.append(Rmf_matrix['ENERG_LO'])
-                    energies_high.append(Rmf_matrix['ENERG_HI'])
-                    responses.append(Rmf_matrix['MATRIX'])
-            except FileNotFoundError as e:
-                logging.error(f"File not found: {rmf_file}")
-                raise
-            except Exception as e:
-                logging.error(f"Error loading {rmf_file}: {e}")
-                raise
-        
-        # Convert to a consistent 2D array by padding each row to the max length
-        response_data = []
-        for response in responses:
-            response_data.append(np.array(response))
-
-        return channel, emin, emax, energies_low, energies_high, response_data
-
     def load_ARF_data(self):
         """
         Load effective area data (ARF files) from the specified directory.
@@ -221,3 +199,71 @@ class ResponseLoader:
             raise ValueError("No 'SPECRESP' data available.")
 
         return ea_response_matrix, widths, bin_centers
+    
+        """
+    This method is the OLD ONE.
+    
+    
+    def load_RMF_data(self):
+
+        Load RMF (Response Matrix File) data from the specified directory.
+
+        Parameters:
+            visualize (bool): If True, additional data useful for visualization is returned.
+
+        Returns:
+            If visualize is True:
+                tuple: (channel, emin, emax, energies_low, energies_high, response_data)
+                    - channel (list of np.ndarray): Channels from each RMF file.
+                    - emin (list of np.ndarray): Minimum energies from each RMF file.
+                    - emax (list of np.ndarray): Maximum energies from each RMF file.
+                    - energies_low (list of np.ndarray): Lower energy bounds from each RMF file.
+                    - energies_high (list of np.ndarray): Higher energy bounds from each RMF file.
+                    - response_data (np.ndarray): 3D array of response data.
+
+            If visualize is False:
+                tuple: (energies_low, energies_high, response_data)
+                    - energies_low (list of np.ndarray): Lower energy bounds from each RMF file.
+                    - energies_high (list of np.ndarray): Higher energy bounds from each RMF file.
+                    - response_data (np.ndarray): 3D array of response data.
+
+        # Create a list of the RMF files for the annulus regions
+        rmf_files = [os.path.join(self.response_data_path, f'annulus{i}.rmf') for i in range(self.angular_bins)]
+
+        # Initialize lists to store RMF data
+        energies_low = []
+        energies_high = []
+        responses = []
+        n_grp = []
+        n_chan = []
+
+        # Load the RMF data
+        for rmf_file in rmf_files:
+            try:
+                with fits.open(rmf_file) as rmf:
+                    rmf_matrix = rmf['MATRIX'].data
+                    energies_low.append(rmf_matrix['ENERG_LO'])
+                    energies_high.append(rmf_matrix['ENERG_HI'])
+                    responses.append(rmf_matrix['MATRIX'])
+                    n_grp.append(rmf_matrix['N_GRP'])
+                    n_chan.append(rmf_matrix['N_CHAN'])
+            except FileNotFoundError as e:
+                logging.error(f"File not found: {rmf_file}")
+                raise
+            except Exception as e:
+                logging.error(f"Error loading {rmf_file}: {e}")
+                raise
+            
+    # Convert to a consistent 2D array by padding each row to the max length
+        max_length = max(len(row) for response in responses for row in response)
+
+        # Initialize a 3D array with zeros to store the response data
+        response_data = np.zeros((len(responses), len(responses[0]), max_length))
+
+        # Fill the response_data array with values
+        for i, response in enumerate(responses):
+            for j, row in enumerate(response):
+                response_data[i, j, :len(row)] = row  # Pad with zeros if row is shorter
+
+        return energies_low, energies_high, response_data
+    """

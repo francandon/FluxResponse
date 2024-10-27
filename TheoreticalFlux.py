@@ -249,7 +249,7 @@ class TheoreticalFlux:
         _, _, rmf = self.response_loader.load_RMF_data()
 
         # Create the energy array
-        channels = np.arange(1, 4097)
+        channels = np.arange(1, 4096)
         energy_all = channel_to_energy(channels).astype(np.float32)
         # Obtain the indices for energy = 30 keV and 70 keV
         index_30 = np.argmin(np.abs(energy_all - 30))
@@ -259,7 +259,7 @@ class TheoreticalFlux:
         # Convert to numpy arrays with efficient data types and ensure C-contiguity
         arf_energy = np.ascontiguousarray(np.array(arf_energy, dtype=np.float32))  # Shape: (N_annulus, N_arf_bins)
         arf = np.ascontiguousarray(np.array(arf, dtype=np.float32))                # Shape: (N_annulus, N_arf_bins)
-        rmf = np.ascontiguousarray(np.array(rmf, dtype=np.float32))                # Shape: (N_annulus, N_detector_bins, N_arf_bins)
+        rmf = np.ascontiguousarray(np.array(rmf, dtype=np.float32))                # Shape: (N_annulus(Files), N_detector_energy_bins, N_response_from_theMatrix)
 
         # Constrain the energy range between 30 keV and 70 keV for the ARF and RMF arrays
         arf = arf[:, index_30:index_70]  # Shape: (N_annulus, N_energies)
@@ -269,10 +269,10 @@ class TheoreticalFlux:
         flux = self.rebin_flux(energies)  # Shape: (Ng, Nm, N_annulus, N_arf_bins)
 
         # Determine grid sizes
-        Ng = len(self.ggrid)
-        Nm = len(self.mgrid)
-        N_energies = len(energies)
-        N_annulus = arf.shape[0] 
+        Ng = len(self.ggrid) # Number of g values
+        Nm = len(self.mgrid) # Number of m values
+        N_energies = len(energies) # Number of energy bins
+        N_annulus = arf.shape[0]  # Number of annuli
 
         logger.info("Computing trapezoidal integration weights...")
         # Precompute the trapezoidal integration weights once outside the loop
@@ -302,6 +302,7 @@ class TheoreticalFlux:
         self.flux = expected_counts
         self.flux_energy = energies
         return expected_counts, energies
+    
     def resizing_energy(self, energy_min : float = 30, energy_max : float = 70) -> np.ndarray:
 
         # Create the energy array
@@ -409,8 +410,9 @@ class TheoreticalFlux:
         max_new = new_bounds[-1]
         
         if min_new < energies[0] or max_new > energies[-1]:
+            print("The new_bounds: ", max_new, energies[-1])
             print("The in_nes and the energie[0]: ", min_new, energies[0])
-            # raise ValueError("new_bounds must be within the range of flux_energy.")
+            raise ValueError("new_bounds must be within the range of flux_energy.")
         
         Ng, Nm, N_annulus, N_energy_bins = expected_counts.shape
         new_energy_bins = len(new_bounds) - 1
